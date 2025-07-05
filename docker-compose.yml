@@ -1,0 +1,8 @@
+version: "3.8"
+
+services:
+  chatbot-recomendation-buy:
+    build: .
+    container_name: chatbot-recomendation-buy
+    restart: always
+    command: node index.js

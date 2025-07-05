@@ -1,0 +1,13 @@
+{
+  "name": "chatbot_xauusd",
+  "version": "1.0.0",
+  "main": "chatbot_xauusd",
+  "scripts": {
+    "start": "node chatbot_xauusd.js"
+  },
+  "dependencies": {
+    "axios": "^1.10.0",
+    "dotenv": "^17.0.1",
+    "technicalindicators": "^3.1.0"
+  }
+}
