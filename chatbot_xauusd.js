@@ -1,7 +1,7 @@
 require("dotenv").config();
-
 const axios = require("axios");
-const { RSI, SMA } = require("technicalindicators");
+const { RSI, SMA, MACD, ATR } = require("technicalindicators");
+const { generateChart, sendImageToTelegram } = require("./utils/chartutils");
 
 // === Konfigurasi Telegram ===
 const BOT_TOKEN = process.env.BOT_TOKEN;
@@ -9,15 +9,15 @@ const CHAT_ID = process.env.CHAT_ID;
 const TELEGRAM_URL = `https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`;
 
 // === Konfigurasi Twelve Data API ===
-const API_KEY = "b71e4be90bdc431c8c31b059711f3976";
+const API_KEY = process.env.TWELVE_DATA_API_KEY;
 
-// === Fungsi Kirim Telegram ===
+// === Fungsi Kirim Pesan Telegram ===
 async function sendTelegram(msg) {
   try {
     await axios.post(TELEGRAM_URL, {
       chat_id: CHAT_ID,
       text: msg,
-      parse_mode: "Markdown"
+      parse_mode: "Markdown",
     });
     console.log("✅ Sinyal terkirim ke Telegram!");
   } catch (err) {
@@ -25,27 +25,52 @@ async function sendTelegram(msg) {
   }
 }
 
-// === Ambil data harga TF 15 Menit ===
+// === Ambil Data Harga XAU/USD ===
 async function fetchXAUUSD() {
   const url = `https://api.twelvedata.com/time_series?symbol=XAU/USD&interval=15min&outputsize=200&apikey=${API_KEY}`;
   const res = await axios.get(url);
   const data = res.data.values;
-  const prices = data.reverse().map(d => parseFloat(d.close)); // dari lama ke baru
-  return prices;
+  return data.reverse().map((d) => ({
+    close: parseFloat(d.close),
+    high: parseFloat(d.high),
+    low: parseFloat(d.low),
+  }));
 }
 
-// === Cek Sinyal BUY ===
+// === Analisis dan Kirim Sinyal ===
 async function checkSignal() {
-  const prices = await fetchXAUUSD();
-  if (prices.length < 200) return;
+  const candles = await fetchXAUUSD();
+  if (candles.length < 200) return;
 
-  const rsi = RSI.calculate({ period: 14, values: prices });
-  const ma5 = SMA.calculate({ period: 5, values: prices });
-  const ma20 = SMA.calculate({ period: 20, values: prices });
-  const ma50 = SMA.calculate({ period: 50, values: prices });
-  const ma100 = SMA.calculate({ period: 100, values: prices });
-  const ma200 = SMA.calculate({ period: 200, values: prices });
+  const closes = candles.map((d) => d.close);
+  const highs = candles.map((d) => d.high);
+  const lows = candles.map((d) => d.low);
+  const currentPrice = closes.at(-1);
 
+  const rsi = RSI.calculate({ period: 14, values: closes });
+  const ma5 = SMA.calculate({ period: 5, values: closes });
+  const ma20 = SMA.calculate({ period: 20, values: closes });
+  const ma50 = SMA.calculate({ period: 50, values: closes });
+  const ma100 = SMA.calculate({ period: 100, values: closes });
+  const ma200 = SMA.calculate({ period: 200, values: closes });
+
+  const macdResult = MACD.calculate({
+    values: closes,
+    fastPeriod: 12,
+    slowPeriod: 26,
+    signalPeriod: 9,
+    SimpleMAOscillator: false,
+    SimpleMASignal: false,
+  });
+
+  const atr = ATR.calculate({
+    high: highs,
+    low: lows,
+    close: closes,
+    period: 14,
+  });
+
+  // Ambil nilai terbaru
   const r = rsi.at(-1);
   const m5 = ma5.at(-1);
   const m20 = ma20.at(-1);
@@ -53,18 +78,72 @@ async function checkSignal() {
   const m100 = ma100.at(-1);
   const m200 = ma200.at(-1);
 
-  const isRSIValid = r >= 30 && r <= 65;
-  const isMAValid = m5 > m20 && m20 > m50 && m50 > m100 && m100 > m200;
+  const latestMACD = macdResult.at(-1);
+  const prevMACD = macdResult.at(-2);
+  const macdValue = latestMACD?.MACD ?? 0;
+  const signalValue = latestMACD?.signal ?? 0;
 
-  console.log(`[XAUUSD][${new Date().toLocaleTimeString()}] RSI: ${r.toFixed(2)} | BUY: ${isRSIValid && isMAValid}`);
+  const latestATR = atr.at(-1) ?? 5;
 
-  if (isRSIValid && isMAValid) {
+  // Syarat konfirmasi
+  const isRSIValid = r >= 25 && r <= 65;
+  const isMABuyValid = m5 > m20 && m20 > m50 && m50 > m100 && m100 > m200;
+  const isMASellValid = m5 < m20 && m20 < m50 && m50 < m100 && m100 < m200;
+  const isMACDCrossUp =
+    macdValue > signalValue && prevMACD?.MACD < prevMACD?.signal;
+  const isMACDCrossDown =
+    macdValue < signalValue && prevMACD?.MACD > prevMACD?.signal;
+
+  console.log(
+    `[XAUUSD][${new Date().toLocaleTimeString()}] RSI: ${r.toFixed(
+      2
+    )} | MA: ${isMABuyValid} | MACD: ${macdValue.toFixed(
+      4
+    )} > ${signalValue.toFixed(4)} | BUY: ${
+      isRSIValid && isMABuyValid && isMACDCrossUp
+    }`
+  );
+
+  // === BUY Signal ===
+  if (isRSIValid && isMABuyValid && isMACDCrossUp) {
+    const TP1 = (currentPrice + latestATR * 1.0).toFixed(2);
+    const TP2 = (currentPrice + latestATR * 1.5).toFixed(2);
+    const TP3 = (currentPrice + latestATR * 2.0).toFixed(2);
+    const SL = (currentPrice - latestATR).toFixed(2);
     await sendTelegram(
-      `🚨 *SINYAL BUY CONFIRM: XAUUSD [TF15]*\n\n*RSI:* ${r.toFixed(2)}\n*MA:* Tersusun bullish\n📈 Aksi: BUY Sekarang di harga: ${prices}\n TP1: ${prices + 5}\n TP2: ${prices + 10}\n TP3: ${prices + 20}\n`
+      `🚨 *SINYAL BUY CONFIRM: XAUUSD [TF15]*\n\n` +
+        `*RSI:* ${r.toFixed(
+          2
+        )}\n*MA:* Tersusun bullish\n*MACD:* ${macdValue.toFixed(
+          4
+        )} > ${signalValue.toFixed(4)} (Cross Up ✅)\n` +
+        `*ATR:* ${latestATR.toFixed(2)}\n\n` +
+        `📍 BUY di harga: ${currentPrice.toFixed(2)}\n` +
+        `🎯 TP1: ${TP1}\n🎯 TP2: ${TP2}\n🎯 TP3: ${TP3}\n` +
+        `🛡️ SL: ${SL}`
+    );
+    const chartPath = await generateChart(closes);
+    const caption = `📈 *Sinyal BUY - XAUUSD*\nRSI: ${r.toFixed(
+      2
+    )} | MACD Cross Up ✅`;
+    await sendImageToTelegram(chartPath, caption, BOT_TOKEN, CHAT_ID);
+  }
+
+  // === SELL Signal ===
+  if (isMASellValid && isMACDCrossDown) {
+    await sendTelegram(
+      `🚨 *SINYAL BEARISH CONFIRM: XAUUSD [TF15]*\n\n` +
+        `*RSI:* ${r.toFixed(
+          2
+        )}\n*MA:* Tersusun bearish\n*MACD:* ${macdValue.toFixed(
+          4
+        )} < ${signalValue.toFixed(4)} (Cross Down ❌)\n\n` +
+        `🚫 Hindari entry buy saat ini.`
     );
   }
 }
 
+// === Eksekusi Tiap 15 Menit ===
 function waitUntilNextQuarterHour() {
   const now = new Date();
   const minutes = now.getMinutes();
@@ -72,14 +151,17 @@ function waitUntilNextQuarterHour() {
   const msToNextQuarter =
     ((15 - (minutes % 15)) % 15) * 60 * 1000 - seconds * 1000;
 
-  console.log(`Xauusd: Waiting ${msToNextQuarter / 1000} seconds to next quarter hour...`);
+  console.log(
+    `XAUUSD: Menunggu ${Math.ceil(
+      msToNextQuarter / 1000
+    )} detik hingga kuartal berikutnya...`
+  );
 
   setTimeout(() => {
     checkSignal();
-    setInterval(checkSignal, 15 * 60 * 1000); // 15 menit
+    setInterval(checkSignal, 15 * 60 * 1000);
   }, msToNextQuarter);
 }
 
-// === Jalan setiap 15 menit ===
-// NOTE: Gunakan cron atau biarkan running terus tiap menit (untuk deteksi cepat sinyal baru)
+// === Mulai Bot ===
 waitUntilNextQuarterHour();

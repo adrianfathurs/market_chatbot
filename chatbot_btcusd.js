@@ -26,7 +26,7 @@ async function sendTelegram(msg) {
 
 // === Ambil data harga TF 15 Menit ===
 async function fetchBTCUSD() {
-  const url = `https://api.twelvedata.com/time_series?symbol=BTC/USD&interval=15min&outputsize=5&apikey=YOUR_API_KEY`;
+  const url = `https://api.twelvedata.com/time_series?symbol=BTC/USD&interval=15min&outputsize=200&apikey=${API_KEY}`;
   const res = await axios.get(url);
   const data = res.data.values;
   const prices = data.reverse().map(d => parseFloat(d.close)); // dari lama ke baru
