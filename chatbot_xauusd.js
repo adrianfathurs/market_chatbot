@@ -27,14 +27,19 @@ async function sendTelegram(msg) {
 
 // === Ambil Data Harga XAU/USD ===
 async function fetchXAUUSD() {
-  const url = `https://api.twelvedata.com/time_series?symbol=XAU/USD&interval=15min&outputsize=200&apikey=${API_KEY}`;
-  const res = await axios.get(url);
-  const data = res.data.values;
-  return data.reverse().map((d) => ({
-    close: parseFloat(d.close),
-    high: parseFloat(d.high),
-    low: parseFloat(d.low),
-  }));
+  try {
+    const url = `https://api.twelvedata.com/time_series?symbol=XAU/USD&interval=15min&outputsize=200&apikey=${API_KEY}`;
+    const res = await axios.get(url);
+    const data = res.data.values;
+    console.log(data,"ini data")
+    return data.reverse().map((d) => ({
+      close: parseFloat(d.close),
+      high: parseFloat(d.high),
+      low: parseFloat(d.low),
+    }));
+  } catch (error) {
+    console.log(error)
+  }
 }
 
 // === Analisis dan Kirim Sinyal ===
