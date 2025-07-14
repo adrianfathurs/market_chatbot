@@ -35,32 +35,36 @@ async function fetchBTCUSD() {
 
 // === Cek Sinyal BUY ===
 async function checkSignal() {
-  const prices = await fetchBTCUSD();
-  if (prices.length < 200) return;
-
-  const rsi = RSI.calculate({ period: 14, values: prices });
-  const ma5 = SMA.calculate({ period: 5, values: prices });
-  const ma20 = SMA.calculate({ period: 20, values: prices });
-  const ma50 = SMA.calculate({ period: 50, values: prices });
-  const ma100 = SMA.calculate({ period: 100, values: prices });
-  const ma200 = SMA.calculate({ period: 200, values: prices });
-
-  const r = rsi.at(-1);
-  const m5 = ma5.at(-1);
-  const m20 = ma20.at(-1);
-  const m50 = ma50.at(-1);
-  const m100 = ma100.at(-1);
-  const m200 = ma200.at(-1);
-
-  const isRSIValid = r >= 30 && r <= 65;
-  const isMAValid = m5 > m20 && m20 > m50 && m50 > m100 && m100 > m200;
-
-  console.log(`[BTCUSD][${new Date().toLocaleTimeString()}] RSI: ${r.toFixed(2)} | BUY: ${isRSIValid && isMAValid}`);
-
-  if (isRSIValid && isMAValid) {
-    await sendTelegram(
-      `🚨 *SINYAL BUY CONFIRM: BTCUSD [TF15]*\n\n*RSI:* ${r.toFixed(2)}\n*MA:* Tersusun bullish\n📈 Aksi: BUY Sekarang di harga: ${prices}\n TP1: ${prices + 5}\n TP2: ${prices + 10}\n TP3: ${prices + 20}\n`
-    );
+  try {
+    const prices = await fetchBTCUSD();
+    if (prices.length < 200) return;
+  
+    const rsi = RSI.calculate({ period: 14, values: prices });
+    const ma5 = SMA.calculate({ period: 5, values: prices });
+    const ma20 = SMA.calculate({ period: 20, values: prices });
+    const ma50 = SMA.calculate({ period: 50, values: prices });
+    const ma100 = SMA.calculate({ period: 100, values: prices });
+    const ma200 = SMA.calculate({ period: 200, values: prices });
+  
+    const r = rsi.at(-1);
+    const m5 = ma5.at(-1);
+    const m20 = ma20.at(-1);
+    const m50 = ma50.at(-1);
+    const m100 = ma100.at(-1);
+    const m200 = ma200.at(-1);
+  
+    const isRSIValid = r >= 30 && r <= 65;
+    const isMAValid = m5 > m20 && m20 > m50 && m50 > m100 && m100 > m200;
+  
+    console.log(`[BTCUSD][${new Date().toLocaleTimeString()}] RSI: ${r.toFixed(2)} | BUY: ${isRSIValid && isMAValid}`);
+  
+    if (isRSIValid && isMAValid) {
+      await sendTelegram(
+        `🚨 *SINYAL BUY CONFIRM: BTCUSD [TF15]*\n\n*RSI:* ${r.toFixed(2)}\n*MA:* Tersusun bullish\n📈 Aksi: BUY Sekarang di harga: ${prices}\n TP1: ${prices + 5}\n TP2: ${prices + 10}\n TP3: ${prices + 20}\n`
+      );
+    }
+  } catch (error) {
+    console.log(error)
   }
 }
 
