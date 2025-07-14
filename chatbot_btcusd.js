@@ -53,7 +53,7 @@ async function checkSignal() {
     const m100 = ma100.at(-1);
     const m200 = ma200.at(-1);
   
-    const isRSIValid = r >= 30 && r <= 65;
+    const isRSIValid = r >= 30 && r <= 100;
     const isMAValid = m5 > m20 && m20 > m50 && m50 > m100 && m100 > m200;
   
     console.log(`[BTCUSD][${new Date().toLocaleTimeString()}] RSI: ${r.toFixed(2)} | BUY: ${isRSIValid && isMAValid}`);
