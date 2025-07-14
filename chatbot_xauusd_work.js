@@ -44,14 +44,13 @@ async function fetchXAUUSD() {
 // === Analisis dan Kirim Sinyal ===
 async function checkSignal() {
   const candles = await fetchXAUUSD();
-  if (!candles || candles.length < 200) return;
+  if (candles.length < 200) return;
 
   const closes = candles.map((d) => d.close);
   const highs = candles.map((d) => d.high);
   const lows = candles.map((d) => d.low);
   const currentPrice = closes.at(-1);
 
-  // === Indikator teknikal ===
   const rsi = RSI.calculate({ period: 14, values: closes });
   const ma5 = SMA.calculate({ period: 5, values: closes });
   const ma20 = SMA.calculate({ period: 20, values: closes });
@@ -75,7 +74,7 @@ async function checkSignal() {
     period: 14,
   });
 
-  // === Ambil nilai terbaru ===
+  // Ambil nilai terbaru
   const r = rsi.at(-1);
   const m5 = ma5.at(-1);
   const m20 = ma20.at(-1);
@@ -88,72 +87,68 @@ async function checkSignal() {
   const macdValue = latestMACD?.MACD ?? 0;
   const signalValue = latestMACD?.signal ?? 0;
 
-  const latestATR = atr.at(-1) ?? 1.0;
+  const latestATR = atr.at(-1) ?? 1;
 
-  // === Validasi tambahan via volatilitas ===
-  const volatilities = highs.map((h, i) => h - lows[i]);
-  const currentVolatility = volatilities.at(-1);
-  const avgVolatility20 = volatilities.slice(-20).reduce((a, b) => a + b, 0) / 20;
-
-  const isVolatilityValid = currentVolatility > avgVolatility20;
-  const isATRValid = latestATR > 0.8; // Bisa kamu sesuaikan
-
-  const isMarketStrong = isVolatilityValid && isATRValid;
-
-  // === Logika sinyal utama ===
+  // Syarat konfirmasi
   const isRSIValid = r >= 25 && r <= 65;
   const isMABuyValid = m5 > m20 && m20 > m50 && m50 > m100 && m100 > m200;
-  const isMASellValid = m5 < m20 && m20 < m50 && m50 < m100;
-
+  const isMASellValid = m5 < m20 && m20 < m50 && m50 < m100 && m100 < m200;
   const isMACDCrossUp =
     macdValue > signalValue && prevMACD?.MACD < prevMACD?.signal;
   const isMACDCrossDown =
     macdValue < signalValue && prevMACD?.MACD > prevMACD?.signal;
 
-  // === Logging ke console ===
   console.log(
-    `[XAUUSD][${new Date().toLocaleTimeString()}] RSI: ${r.toFixed(2)} | MA Bull: ${isMABuyValid} | MACD: ${macdValue.toFixed(4)} > ${signalValue.toFixed(4)} | ATR: ${latestATR.toFixed(2)} | Volatility: ${currentVolatility.toFixed(2)} | BUY: ${isRSIValid && isMABuyValid && isMACDCrossUp && isMarketStrong}`
+    `[XAUUSD][${new Date().toLocaleTimeString()}] RSI: ${r.toFixed(
+      2
+    )} | MA: ${isMABuyValid} | MACD: ${macdValue.toFixed(
+      4
+    )} > ${signalValue.toFixed(4)} | BUY: ${
+      isRSIValid && isMABuyValid && isMACDCrossUp
+    }`
   );
 
-  // === Sinyal BUY ===
-  if (isRSIValid && isMABuyValid && isMACDCrossUp && isMarketStrong) {
+  // === BUY Signal ===
+  if (isRSIValid && isMABuyValid && isMACDCrossUp) {
     const TP1 = (currentPrice + latestATR * 1.0).toFixed(2);
     const TP2 = (currentPrice + latestATR * 1.5).toFixed(2);
     const TP3 = (currentPrice + latestATR * 2.0).toFixed(2);
-    const lowerBuy = (currentPrice - latestATR * 1.0).toFixed(2);
+    const lowerBuy = (currentPrice - latestATR * 1).toFixed(2);
     const upperBuy = (currentPrice - latestATR * 0.5).toFixed(2);
-    const SL = (currentPrice - latestATR * 1.5).toFixed(2);
     const rangeBuy = `${lowerBuy} - ${upperBuy}`;
-
+    const SL = (currentPrice - latestATR * 1.5).toFixed(2);
     await sendTelegram(
       `🚨 *SINYAL BUY CONFIRM: XAUUSD [TF15]*\n\n` +
-        `*RSI:* ${r.toFixed(2)} ✅\n` +
-        `*MA:* Tersusun bullish ✅\n` +
-        `*MACD:* ${macdValue.toFixed(4)} > ${signalValue.toFixed(4)} (Cross Up ✅)\n` +
-        `*ATR:* ${latestATR.toFixed(2)} ✅\n` +
-        `*Volatilitas:* ${currentVolatility.toFixed(2)} (Rata-rata: ${avgVolatility20.toFixed(2)}) ✅\n\n` +
-        `📍 *Buy Area:* ${rangeBuy}\n` +
-        `🎯 *TP1:* ${TP1}\n🎯 *TP2:* ${TP2}\n🎯 *TP3:* ${TP3}\n` +
-        `🛡️ *SL:* ${SL}`
+        `*RSI:* ${r.toFixed(
+          2
+        )}\n*MA:* Tersusun bullish\n*MACD:* ${macdValue.toFixed(
+          4
+        )} > ${signalValue.toFixed(4)} (Cross Up ✅)\n` +
+        `*ATR:* ${latestATR.toFixed(2)}\n\n` +
+        `📍 BUY di harga: ${rangeBuy}\n` +
+        `🎯 TP1: ${TP1}\n🎯 TP2: ${TP2}\n🎯 TP3: ${TP3}\n` +
+        `🛡️ SL: ${SL}`
     );
-
     const chartPath = await generateChart(closes);
-    const caption = `📈 *Sinyal BUY - XAUUSD*\nRSI: ${r.toFixed(2)} | MACD Cross Up ✅`;
+    const caption = `📈 *Sinyal BUY - XAUUSD*\nRSI: ${r.toFixed(
+      2
+    )} | MACD Cross Up ✅`;
     await sendImageToTelegram(chartPath, caption, BOT_TOKEN, CHAT_ID);
   }
 
-  // === Sinyal SELL ===
+  // === SELL Signal ===
   if (isMASellValid && isMACDCrossDown) {
     await sendTelegram(
       `🚨 *SINYAL BEARISH CONFIRM: XAUUSD [TF15]*\n\n` +
-        `*RSI:* ${r.toFixed(2)}\n` +
-        `*MA:* Tersusun bearish ✅\n` +
-        `*MACD:* ${macdValue.toFixed(4)} < ${signalValue.toFixed(4)} (Cross Down ❌)\n\n` +
+        `*RSI:* ${r.toFixed(
+          2
+        )}\n*MA:* Tersusun bearish\n*MACD:* ${macdValue.toFixed(
+          4
+        )} < ${signalValue.toFixed(4)} (Cross Down ❌)\n\n` +
         `🚫 Hindari entry buy saat ini.`
     );
   }
 }
-
 
 // === Eksekusi Tiap 15 Menit ===
 function waitUntilNextQuarterHour() {
