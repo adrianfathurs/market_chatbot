@@ -26,11 +26,16 @@ async function sendTelegram(msg) {
 
 // === Ambil data harga TF 15 Menit ===
 async function fetchBTCUSD() {
-  const url = `https://api.twelvedata.com/time_series?symbol=BTC/USD&interval=15min&outputsize=200&apikey=${API_KEY}`;
-  const res = await axios.get(url);
-  const data = res.data.values;
-  const prices = data.reverse().map(d => parseFloat(d.close)); // dari lama ke baru
-  return prices;
+  try {
+    
+    const url = `https://api.twelvedata.com/time_series?symbol=BTC/USD&interval=15min&outputsize=200&apikey=${API_KEY}`;
+    const res = await axios.get(url);
+    const data = res.data.values;
+    const prices = data.reverse().map(d => parseFloat(d.close)); // dari lama ke baru
+    return prices;
+  } catch (error) {
+    console.log(error)
+  }
 }
 
 // === Cek Sinyal BUY ===
@@ -73,13 +78,13 @@ function waitUntilNextQuarterHour() {
   const minutes = now.getMinutes();
   const seconds = now.getSeconds();
   const msToNextQuarter =
-    ((15 - (minutes % 15)) % 15) * 60 * 1000 - seconds * 1000;
+    60 * 1000 - seconds * 1000;
 
   console.log(`BTCUSD: Waiting ${msToNextQuarter / 1000} seconds to next quarter hour...`);
 
   setTimeout(() => {
     checkSignal();
-    setInterval(checkSignal, 15 * 60 * 1000); // 15 menit
+    setInterval(checkSignal, 60 * 1000); // 15 menit
   }, msToNextQuarter);
 }
 
