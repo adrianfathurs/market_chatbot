@@ -113,13 +113,13 @@ async function checkSignal() {
         2
       )} | MA Bull: ${isMABuyValid} | MACD: ${macdValue.toFixed(
         4
-      )} > ${signalValue.toFixed(4)} | ATR: ${latestATR.toFixed(2)} | BUY: ${
-        isRSIValid && isMABuyValid && isMACDCrossUp && isMarketStrong
+      )} > ${signalValue.toFixed(4)} | MACD confirm: ${isMACDCrossUp} | ATR: ${latestATR.toFixed(2)} | BUY: ${
+        isRSIValid && isMABuyValid && isMACDCrossUp
       }`
     );
 
     // === Sinyal BUY ===
-    if (isRSIValid && isMABuyValid && isMACDCrossUp && isMarketStrong) {
+    if (isRSIValid && isMABuyValid && isMACDCrossUp) {
       const TP1 = (currentPrice + latestATR * 1.0).toFixed(2);
       const TP2 = (currentPrice + latestATR * 1.5).toFixed(2);
       const TP3 = (currentPrice + latestATR * 2.0).toFixed(2);
