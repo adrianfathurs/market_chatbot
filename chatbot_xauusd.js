@@ -102,8 +102,11 @@ async function checkSignal() {
     const isMABuyValid = m5 > m20 && m20 > m50 && m50 > m100 && m100 > m200;
     const isMASellValid = m5 < m20 && m20 < m50 && m50 < m100;
 
+    const macdDiff = macdValue - signalValue;
+    const prevMacdDiff = prevMACD.MACD - prevMACD.signal;
+
     const isMACDCrossUp =
-      macdValue > signalValue && prevMACD?.MACD < prevMACD?.signal;
+      macdDiff > 0 && prevMacdDiff <= 0 && Math.abs(prevMacdDiff) > 0.02;
     const isMACDCrossDown =
       macdValue < signalValue && prevMACD?.MACD > prevMACD?.signal;
 
@@ -113,9 +116,11 @@ async function checkSignal() {
         2
       )} | MA Bull: ${isMABuyValid} | MACD: ${macdValue.toFixed(
         4
-      )} > ${signalValue.toFixed(4)} | MACD confirm: ${isMACDCrossUp} | ATR: ${latestATR.toFixed(2)} | BUY: ${
-        isRSIValid && isMABuyValid && isMACDCrossUp
-      }`
+      )} > ${signalValue.toFixed(
+        4
+      )} | MACD confirm: ${isMACDCrossUp} | ATR: ${latestATR.toFixed(
+        2
+      )} | BUY: ${isRSIValid && isMABuyValid && isMACDCrossUp}`
     );
 
     // === Sinyal BUY ===
