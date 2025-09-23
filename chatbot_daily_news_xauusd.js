@@ -6,7 +6,6 @@ const axios = require("axios");
 
 // === Konfigurasi TradingEconomics ===
 const API_KEY = process.env.TRADING_ECONOMICS_API_KEY;
-console.log("API KEY:", process.env.TRADING_ECONOMICS_API_KEY);
 const BASE_URL = "https://api.tradingeconomics.com";
 
 // === Konfigurasi Telegram ===
@@ -51,11 +50,15 @@ async function getEvents(from, to) {
 // === Interpretasi event berdasarkan Actual vs Forecast ===
 // === FUNGSI INTERPRETASI ===
 function interpretEvent(event) {
-  if (!event.actual || !event.forecast) return "Netral";
+  const signalCheck = {
+    dataActual: event.actual,
+    message: "Netral" 
+  }
+  if (!event.actual || !event.forecast) return {...signalCheck, message: "Netral"};
 
   const actual = parseFloat(event.actual);
   const forecast = parseFloat(event.forecast);
-  if (isNaN(actual) || isNaN(forecast)) return "Netral";
+  if (isNaN(actual) || isNaN(forecast)) return {...signalCheck, message: "Netral"};
 
   const diff = ((actual - forecast) / forecast) * 100; // selisih %
 
@@ -68,14 +71,14 @@ function interpretEvent(event) {
 
   if (actual > forecast) {
     return isBearishForGold
-      ? `Bearish Emas (${strength})`
-      : `Bullish Emas (${strength})`;
+      ? `Bearish Emas (${{...signalCheck, message: strength}})`
+      : `Bullish Emas (${{...signalCheck, message: strength}})`;
   } else if (actual < forecast) {
     return isBearishForGold
-      ? `Bullish Emas (${strength})`
-      : `Bearish Emas (${strength})`;
+      ? `Bullish Emas (${{...signalCheck, message: strength}})`
+      : `Bearish Emas (${{...signalCheck, message: strength}})`;
   } else {
-    return "Netral";
+    return {...signalCheck, message: "Netral"};
   }
 }
 
@@ -109,15 +112,17 @@ async function watchTodayEvents() {
     if (ev.actual !== null && !sentEvents.has(ev.event)) {
       const time = moment(ev.date).tz("Asia/Jakarta").format("DD MMM YYYY HH:mm");
       const signal = interpretEvent(ev);
+      const {data, message: signalMessage} = signal
 
       const message =
         `📊 *Hasil Event Ekonomi Dirilis*\n\n` +
         `- [${ev.country}] *${ev.event}* (${ev.importance})\n` +
         `🕒 ${time}\n` +
         `📌 Actual: ${ev.actual}, Forecast: ${ev.forecast}, Previous: ${ev.previous}\n\n` +
-        `➡️ Interpretasi: *${signal}*`;
-
-      await sendTelegram(message);
+        `➡️ Interpretasi: *${signalMessage}*`;
+      if(data){
+        await sendTelegram(message);
+      }
       sentEvents.add(ev.event);
     }
   }
