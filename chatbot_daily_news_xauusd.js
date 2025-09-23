@@ -6,7 +6,7 @@ const axios = require("axios");
 
 // === Konfigurasi TradingEconomics ===
 const API_KEY = process.env.TRADING_ECONOMICS_API_KEY;
-
+console.log("API KEY:", process.env.TRADING_ECONOMICS_API_KEY);
 const BASE_URL = "https://api.tradingeconomics.com";
 
 // === Konfigurasi Telegram ===
@@ -17,7 +17,6 @@ const TELEGRAM_URL = `https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`;
 // === Fungsi kirim ke Telegram ===
 async function sendTelegram(msg) {
   try {
-    console.log("API KEY:", process.env.TRADING_ECONOMICS_API_KEY);
     await axios.post(TELEGRAM_URL, {
       chat_id: CHAT_ID,
       text: msg,
