@@ -28,7 +28,7 @@ async function sendTelegram(msg) {
 // === Ambil Data Harga XAU/USD ===
 async function fetchXAUUSD() {
   try {
-    const url = `https://api.twelvedata.com/time_series?symbol=XAU/USD&interval=15min&outputsize=500&apikey=${API_KEY}`;
+    const url = `https://api.twelvedata.com/time_series?symbol=XAU/USD&interval=1h&outputsize=500&apikey=${API_KEY}`;
     // outputsize diperbesar supaya bisa hitung statistik historis untuk threshold dinamis
     const res = await axios.get(url);
     if (!res.data || !res.data.values) {
@@ -157,7 +157,7 @@ async function checkSignal() {
     const isShortMASlopingUp = ma5Slope > 0 || ma20Slope > 0;
 
     const isMABuyValid = maStackBasic || (isShortMASlopingUp && m5 > m20);
-    const isMASellValid = m5 < m20 && m20 < m50;
+    const isMASellValid = m5 < m20 && m20 < m50 && m50 < m100 && m100 < m200;
 
     // === MACD cross dengan threshold relatif ===
     const macdDiff = macdValue - signalValue;
@@ -237,7 +237,7 @@ async function checkSignal() {
       const rangeBuy = `${lowerBuy} - ${upperBuy}`;
 
       await sendTelegram(
-        `🚨 *SINYAL BUY CONFIRM: XAUUSD [TF15]*\n\n` +
+        `🚨 *SINYAL BUY CONFIRM: XAUUSD [TF H1]*\n\n` +
           `*Harga:* ${currentPrice.toFixed(2)}\n` +
           `*RSI:* ${r.toFixed(2)} ✅\n` +
           `*MA:* Kondisi bullish (fleksibel) ✅\n` +
@@ -264,7 +264,7 @@ async function checkSignal() {
     // condition sell: MA bearish or MACD cross down, RSI tidak oversold
     if (isMASellValid && isMACDCrossDown) {
       await sendTelegram(
-        `🚨 *SINYAL BEARISH CONFIRM: XAUUSD [TF15]*\n\n` +
+        `🚨 *SINYAL BEARISH CONFIRM: XAUUSD [TF H1]*\n\n` +
           `*Harga:* ${currentPrice.toFixed(2)}\n` +
           `*RSI:* ${r.toFixed(2)}\n` +
           `*MA:* Tersusun bearish ✅\n` +
