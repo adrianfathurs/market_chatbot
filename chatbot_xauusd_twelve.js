@@ -231,14 +231,13 @@ async function checkSignal() {
       const TP1 = (currentPrice + latestATR * 1.0).toFixed(2);
       const TP2 = (currentPrice + latestATR * 1.5).toFixed(2);
       const TP3 = (currentPrice + latestATR * 2.0).toFixed(2);
-      const lowerBuy = (currentPrice - latestATR * 1.0).toFixed(2);
+      const lowerBuy = (currentPrice - latestATR * 2.0).toFixed(2);
       const upperBuy = (currentPrice - latestATR * 0.5).toFixed(2);
       const SL = (currentPrice - latestATR * 1.5).toFixed(2);
       const rangeBuy = `${lowerBuy} - ${upperBuy}`;
 
       await sendTelegram(
         `🚨 *SINYAL BUY CONFIRM: XAUUSD [TF H1]*\n\n` +
-          `*Harga:* ${currentPrice.toFixed(2)}\n` +
           `*RSI:* ${r.toFixed(2)} ✅\n` +
           `*MA:* Kondisi bullish (fleksibel) ✅\n` +
           `*MACD:* ${macdValue.toFixed(4)} > ${signalValue.toFixed(4)} (Cross Up ✅)\n` +
@@ -265,7 +264,6 @@ async function checkSignal() {
     if (isMASellValid && isMACDCrossDown) {
       await sendTelegram(
         `🚨 *SINYAL BEARISH CONFIRM: XAUUSD [TF H1]*\n\n` +
-          `*Harga:* ${currentPrice.toFixed(2)}\n` +
           `*RSI:* ${r.toFixed(2)}\n` +
           `*MA:* Tersusun bearish ✅\n` +
           `*MACD:* ${macdValue.toFixed(4)} < ${signalValue.toFixed(
