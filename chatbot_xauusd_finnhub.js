@@ -25,27 +25,27 @@ async function sendTelegram(msg) {
     console.error("❌ Gagal kirim:", err.message);
   }
 }
-
-// === Ambil Data Candle XAU/USD dari Finnhub ===
+// === Ambil Data Harga XAU/USD dari Binance ===
 async function fetchXAUUSD() {
   try {
-    const now = Math.floor(Date.now() / 1000);
-    const from = now - 60 * 60 * 24 * 7; // 7 hari ke belakang cukup untuk indikator
-    const url = `${BASE_URL}/forex/candle?symbol=OANDA:XAU_USD&resolution=15&from=${from}&to=${now}&token=${API_KEY}`;
-    console.log("fetchXAUUSD url:", url);
+    const url = `https://api.binance.com/api/v3/klines?symbol=XAUUSDT&interval=15m&limit=1000`;
     const res = await axios.get(url);
 
-    if (!res.data || res.data.s !== "ok") {
-      console.warn("fetchXAUUSD: respons API tidak valid:", res.data);
+    console.log("Status:", res.status);
+    console.log("Contoh 1 candle:", res.data[0]);
+
+    if (!res.data || !Array.isArray(res.data)) {
+      console.warn("fetchXAUUSD: respons Binance tidak valid");
       return null;
     }
 
-    // mapping ke format candle
-    return res.data.c.map((close, i) => ({
-      time: res.data.t[i] * 1000, // unix ts ms
-      close: close,
-      high: res.data.h[i],
-      low: res.data.l[i],
+    return res.data.map(candle => ({
+      time: new Date(candle[0]).toISOString(), // open time
+      open: parseFloat(candle[1]),
+      high: parseFloat(candle[2]),
+      low: parseFloat(candle[3]),
+      close: parseFloat(candle[4]),
+      volume: parseFloat(candle[5]),
     }));
   } catch (error) {
     console.error("fetchXAUUSD error:", error.message || error);
@@ -53,12 +53,15 @@ async function fetchXAUUSD() {
   }
 }
 
+
+
 // === Analisis dan Kirim Sinyal ===
 async function checkSignal() {
   try {
     const candles = await fetchXAUUSD();
-    if (!candles || candles.length < 250) {
-      console.warn("Data candles kurang untuk analisis (butuh >=250).");
+    console.log(candles, "ini candles")
+    if (!candles || candles.length < 100) {
+      console.warn("Data candles kurang untuk analisis (butuh >=100).");
       return;
     }
 
@@ -136,18 +139,17 @@ async function checkSignal() {
   }
 }
 
-// === Eksekusi tiap 15 menit ===
-function waitUntilNextQuarterHour() {
+function runEveryMinute() {
   const now = new Date();
-  const minutes = now.getMinutes();
   const seconds = now.getSeconds();
-  const ms = ((15 - (minutes % 15)) % 15) * 60 * 1000 - seconds * 1000;
+  const ms = (60 - seconds) * 1000; // tunggu sampai menit berikutnya
 
-  console.log(`Menunggu ${Math.ceil(ms / 1000)} detik ke kuartal berikutnya...`);
+  console.log(`Menunggu ${ms/1000} detik ke menit berikutnya...`);
+
   setTimeout(() => {
-    checkSignal();
-    setInterval(() => checkSignal(), 15 * 60 * 1000);
+    checkSignal(); // eksekusi pertama
+    setInterval(() => checkSignal(), 60 * 1000); // lalu tiap menit
   }, ms);
 }
 
-waitUntilNextQuarterHour();
+runEveryMinute();
