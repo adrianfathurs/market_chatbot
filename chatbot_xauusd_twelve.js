@@ -99,7 +99,7 @@ async function checkSignal() {
   const TP2 = (price + ATR_VALUE * atrFactor.tp2).toFixed(2);
   const TP3 = (price + ATR_VALUE * atrFactor.tp3).toFixed(2);
 
-  const isBuy = M5 > M20 && M20 > M50 && R < 35;
+  const isBuy = M5 > M20 && M20 > M50 && R < 60;
   if (isBuy) {
     sendTelegram(
       `🚨 <b>SIGNAL BUY (15m)</b>\n\n` +
