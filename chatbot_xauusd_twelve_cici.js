@@ -50,7 +50,7 @@ async function fetchData() {
   try {
 
     const url =
-      `https://api.twelvedata.com/time_series?symbol=XAU/USD&interval=15min&outputsize=200&apikey=${API_KEY}`;
+      `https://api.twelvedata.com/time_series?symbol=XAU/USD&interval=1min&outputsize=200&apikey=${API_KEY}`;
 
     const res = await axios.get(url);
 
