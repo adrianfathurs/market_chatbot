@@ -118,6 +118,7 @@ async function checkSignal() {
     lastSignalTime = last.time;
     sendTelegram(
   `🚨 <b>PANTAU CICI GUYS</b> 🚨
+    Current Price : ${close.toFixed(2)}
     Current CCI Value : ${CCI_VALUE.toFixed(2)}`);
   }
 }
