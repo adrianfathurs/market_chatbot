@@ -16,28 +16,36 @@ const TELEGRAM_URL = `https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`;
 
 const API_KEY = process.env.TWELVE_DATA_API_KEY;
 
-// jarak level seperti di Pine Script
+// ==============================
+// CONFIG
+// ==============================
+
 const jarakLevel = 15;
 
-// simpan cluster aktif
 let currentCluster = null;
+let sessionActive = false;
 
 // ==============================
 // TELEGRAM FUNCTION
 // ==============================
 
 async function sendTelegram(msg) {
-  try {
-    await axios.post(TELEGRAM_URL, {
-      chat_id: CHAT_ID,
-      text: msg,
-      parse_mode: "HTML"
-    });
 
-    console.log("✔ Alert terkirim");
-  } catch (err) {
-    console.log("Telegram error:", err.message);
-  }
+    try {
+
+        await axios.post(TELEGRAM_URL, {
+            chat_id: CHAT_ID,
+            text: msg,
+            parse_mode: "HTML"
+        });
+
+        console.log("✔ Alert terkirim");
+
+    } catch (err) {
+
+        console.log("Telegram error:", err.response?.data || err.message);
+
+    }
 }
 
 // ==============================
@@ -46,20 +54,20 @@ async function sendTelegram(msg) {
 
 async function fetchData() {
 
-  const url =
-    `https://api.twelvedata.com/time_series?symbol=XAU/USD&interval=15min&outputsize=200&apikey=${API_KEY}`;
+    const url =
+        `https://api.twelvedata.com/time_series?symbol=XAU/USD&interval=15min&outputsize=200&apikey=${API_KEY}`;
 
-  const res = await axios.get(url);
+    const res = await axios.get(url);
 
-  if (!res.data.values) return null;
+    if (!res.data.values) return null;
 
-  return res.data.values.reverse().map(d => ({
-    open: parseFloat(d.open),
-    high: parseFloat(d.high),
-    low: parseFloat(d.low),
-    close: parseFloat(d.close),
-    time: d.datetime
-  }));
+    return res.data.values.reverse().map(d => ({
+        open: parseFloat(d.open),
+        high: parseFloat(d.high),
+        low: parseFloat(d.low),
+        close: parseFloat(d.close),
+        time: d.datetime
+    }));
 }
 
 // ==============================
@@ -68,9 +76,9 @@ async function fetchData() {
 
 function getLevelFromRSI(rsi) {
 
-  if (rsi >= 60) return "A";
-  if (rsi >= 45) return "B";
-  return "D";
+    if (rsi >= 60) return "A";
+    if (rsi >= 45) return "B";
+    return "D";
 }
 
 // ==============================
@@ -79,84 +87,97 @@ function getLevelFromRSI(rsi) {
 
 function calculateCluster(openPrice, rsi) {
 
-  const level = getLevelFromRSI(rsi);
+    const level = getLevelFromRSI(rsi);
 
-  let A, B, C, D;
+    let A, B, C, D;
 
-  if (level === "A") {
+    if (level === "A") {
 
-    A = openPrice;
-    B = A - jarakLevel;
-    C = B - jarakLevel;
-    D = C - jarakLevel;
+        A = openPrice;
+        B = A - jarakLevel;
+        C = B - jarakLevel;
+        D = C - jarakLevel;
 
-  } else if (level === "B") {
+    }
 
-    B = openPrice;
-    C = B - jarakLevel;
-    A = B + jarakLevel;
-    D = C - jarakLevel;
+    else if (level === "B") {
 
-  } else {
+        B = openPrice;
+        C = B - jarakLevel;
+        A = B + jarakLevel;
+        D = C - jarakLevel;
 
-    D = openPrice;
-    C = D + jarakLevel;
-    B = C + jarakLevel;
-    A = B + jarakLevel;
-  }
+    }
 
-  return {
-    A,
-    B,
-    C,
-    D,
-    D2: D - jarakLevel,
-    D3: D - jarakLevel * 2,
-    D4: D - jarakLevel * 3
-  };
+    else {
+
+        D = openPrice;
+        C = D + jarakLevel;
+        B = C + jarakLevel;
+        A = B + jarakLevel;
+
+    }
+
+    return {
+
+        A,
+        B,
+        C,
+        D,
+
+        D2: D - jarakLevel,
+        D3: D - jarakLevel * 2,
+        D4: D - jarakLevel * 3
+
+    };
 }
 
 // ==============================
-// CEK SESI
+// CEK SESSION
 // ==============================
 
 function checkSession() {
 
-  const now = new Date();
-  const hour = now.getUTCHours();
-  const minute = now.getUTCMinutes();
+    const now = new Date();
 
-  return (
+    const hour = now.getUTCHours();
+    const minute = now.getUTCMinutes();
 
-    (hour === 23 && minute === 0) || // Asia
-    (hour === 7 && minute === 0)  || // Europe
-    (hour === 13 && minute === 0)    // US
+    return (
 
-  );
+        (hour === 23 && minute === 0) || // Asia
+        (hour === 7 && minute === 0) ||  // Europe
+        (hour === 13 && minute === 0)    // US
+
+    );
+
 }
 
 // ==============================
-// UPDATE CLUSTER SAAT OPEN SESI
+// UPDATE CLUSTER
 // ==============================
 
 async function updateCluster() {
 
-  const candles = await fetchData();
-  if (!candles) return;
+    const candles = await fetchData();
 
-  const close = candles.map(c => c.close);
+    if (!candles) return;
 
-  const rsi = RSI.calculate({
-    period: 14,
-    values: close
-  });
+    const close = candles.map(c => c.close);
 
-  const rsiPrev = rsi.at(-2);
-  const openPrice = candles.at(-1).open;
+    const rsi = RSI.calculate({
+        period: 14,
+        values: close
+    });
 
-  currentCluster = calculateCluster(openPrice, rsiPrev);
+    const rsiPrev = rsi.at(-2);
 
-  console.log("Cluster updated:", currentCluster);
+    const openPrice = candles.at(-1).open;
+
+    currentCluster = calculateCluster(openPrice, rsiPrev);
+
+    console.log("Cluster updated:", currentCluster);
+
 }
 
 // ==============================
@@ -165,47 +186,74 @@ async function updateCluster() {
 
 async function monitorPrice() {
 
-  const candles = await fetchData();
-  if (!candles || !currentCluster) return;
+    if (!sessionActive) return;
 
-  const price = candles.at(-1).close;
+    const candles = await fetchData();
 
-  if (price <= currentCluster.D) {
+    if (!candles || !currentCluster) return;
 
-    sendTelegram(
-        `⚠️ <b>XAUUSD CLUSTER ALERT</b>
+    const price = candles.at(-1).close;
 
-        Price masuk area D
+    console.log("Price:", price);
 
-        Price : ${price}
+    if (price <= currentCluster.D) {
 
-        Cluster Level
-        D  : ${currentCluster.D}
-        D2 : ${currentCluster.D2}
-        D3 : ${currentCluster.D3}
-        D4 : ${currentCluster.D4}
+        await sendTelegram(
 
-        Potensi area reversal / liquidity zone`
-    );
+`⚠️ <b>XAUUSD CLUSTER ALERT</b>
 
-    currentCluster = null;
-  }
+Price masuk area D
+
+Price : ${price}
+
+Cluster Level
+A  : ${currentCluster.A}
+B  : ${currentCluster.B}
+C  : ${currentCluster.C}
+D  : ${currentCluster.D}
+D2 : ${currentCluster.D2}
+D3 : ${currentCluster.D3}
+D4 : ${currentCluster.D4}
+
+Potensi area reversal / liquidity zone`
+
+        );
+
+        sessionActive = false;
+        currentCluster = null;
+
+    }
+
 }
 
 // ==============================
-// BOT LOOP
+// BOT START
 // ==============================
 
-setInterval(async () => {
+async function startBot() {
 
-  if (checkSession()) {
+    console.log("🤖 Cluster Bot Running...");
 
-    await updateCluster();
+    await sendTelegram("🤖 XAUUSD Cluster Bot aktif");
 
-  }
+    setInterval(async () => {
 
-  await monitorPrice();
+        // cek apakah session baru
+        if (checkSession()) {
 
-}, 15 * 60 * 1000);
+            console.log("Session open -> update cluster");
 
-console.log("🤖 Cluster Bot Running...");
+            await updateCluster();
+
+            sessionActive = true;
+
+        }
+
+        // monitor harga
+        await monitorPrice();
+
+    }, 60 * 1000);
+
+}
+
+startBot();
