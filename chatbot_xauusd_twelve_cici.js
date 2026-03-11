@@ -1,6 +1,10 @@
 require("dotenv").config();
 const axios = require("axios");
 const { CCI } = require("technicalindicators");
+const ExcelJS = require("exceljs");
+const fs = require("fs");
+const FormData = require("form-data");
+const path = require("path");
 
 // ==============================
 // TELEGRAM
@@ -8,8 +12,7 @@ const { CCI } = require("technicalindicators");
 
 const BOT_TOKEN = process.env.BOT_TOKEN;
 const CHAT_ID = process.env.CHAT_ID;
-
-const TELEGRAM_URL = `https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`;
+const TELEGRAM_BASE = `https://api.telegram.org/bot${BOT_TOKEN}`;
 
 // ==============================
 // API
@@ -18,27 +21,67 @@ const TELEGRAM_URL = `https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`;
 const API_KEY = process.env.TWELVE_DATA_API_KEY;
 
 // ==============================
-// ANTI SPAM (1 SIGNAL PER CANDLE)
+// STORAGE
 // ==============================
 
+let signalLogs = [];
 let lastSignalTime = null;
+let exportedToday = false;
 
 // ==============================
-// TELEGRAM FUNCTION
+// SEND TELEGRAM MESSAGE
 // ==============================
 
 async function sendTelegram(msg) {
   try {
-    await axios.post(TELEGRAM_URL, {
+
+    await axios.post(`${TELEGRAM_BASE}/sendMessage`, {
       chat_id: CHAT_ID,
       text: msg,
       parse_mode: "HTML"
     });
 
-    console.log("✔ Signal terkirim");
+    console.log("✔ Alert terkirim");
+
   } catch (err) {
-    console.log("Telegram error:", err.message);
+
+    console.log("Telegram error:", err.response?.data || err.message);
+
   }
+}
+
+// ==============================
+// SEND FILE TELEGRAM
+// ==============================
+
+async function sendTelegramFile(filePath) {
+
+  try {
+
+    console.log("Mengirim file:", filePath);
+
+    const form = new FormData();
+
+    form.append("chat_id", CHAT_ID);
+    form.append("document", fs.createReadStream(filePath));
+
+    const res = await axios.post(
+      `${TELEGRAM_BASE}/sendDocument`,
+      form,
+      {
+        headers: form.getHeaders()
+      }
+    );
+
+    console.log("✔ Excel terkirim ke Telegram");
+    console.log(res.data);
+
+  } catch (err) {
+
+    console.log("Upload error:", err.response?.data || err.message);
+
+  }
+
 }
 
 // ==============================
@@ -66,7 +109,7 @@ async function fetchData() {
 
   } catch (err) {
 
-    console.log("API Error:", err.message);
+    console.log("API error:", err.message);
     return null;
 
   }
@@ -74,13 +117,12 @@ async function fetchData() {
 }
 
 // ==============================
-// MAIN SIGNAL CHECK
+// CHECK CCI SIGNAL
 // ==============================
 
 async function checkSignal() {
 
   const candles = await fetchData();
-
   if (!candles) return;
 
   const high = candles.map(c => c.high);
@@ -89,15 +131,7 @@ async function checkSignal() {
 
   const last = candles.at(-1);
 
-  // ==============================
-  // ANTI SPAM
-  // ==============================
-
   if (lastSignalTime === last.time) return;
-
-  // ==============================
-  // CCI CALCULATION
-  // ==============================
 
   const cci = CCI.calculate({
     high,
@@ -110,17 +144,103 @@ async function checkSignal() {
 
   const CCI_VALUE = cci.at(-1);
 
-  // ==============================
-  // SIGNAL CONDITION
-  // ==============================
-
   if (CCI_VALUE < -100) {
+
     lastSignalTime = last.time;
+
+    const price = last.close.toFixed(2);
+    const cciValue = CCI_VALUE.toFixed(2);
+
+    signalLogs.push({
+      time: last.time,
+      price: price,
+      cci: cciValue
+    });
+
     sendTelegram(
-  `🚨 <b>PANTAU CICI GUYS</b> 🚨
-    Current Price : ${last.close.toFixed(2)}
-    Current CCI Value : ${CCI_VALUE.toFixed(2)}`);
+`🚨 <b>CICI MEMENUHI SYARAT GUYS</b> 🚨
+
+Price : ${price}
+CCI   : ${cciValue}`
+    );
+
   }
+
+}
+
+// ==============================
+// CREATE EXCEL
+// ==============================
+
+async function createExcel() {
+
+  try {
+
+    if (signalLogs.length === 0) {
+
+      console.log("Tidak ada signal hari ini");
+      return;
+
+    }
+
+    const workbook = new ExcelJS.Workbook();
+    const sheet = workbook.addWorksheet("CICI SIGNAL");
+
+    sheet.columns = [
+      { header: "Time", key: "time", width: 25 },
+      { header: "Price", key: "price", width: 15 },
+      { header: "CCI", key: "cci", width: 15 }
+    ];
+
+    signalLogs.forEach(row => {
+      sheet.addRow(row);
+    });
+
+    const fileName = `CICI_SIGNAL_${Date.now()}.xlsx`;
+    const filePath = path.join(__dirname, fileName);
+
+    await workbook.xlsx.writeFile(filePath);
+
+    console.log("✔ Excel dibuat:", filePath);
+
+    await sendTelegramFile(filePath);
+
+    signalLogs = [];
+
+  } catch (err) {
+
+    console.log("Excel error:", err.message);
+
+  }
+
+}
+
+// ==============================
+// CHECK EXPORT TIME
+// ==============================
+
+function checkExportTime() {
+
+  const now = new Date();
+
+  console.log("Check time:", now.toLocaleTimeString());
+
+  if (now.getHours() === 21 && now.getMinutes() === 0 && !exportedToday) {
+
+    console.log("⏰ Waktu export Excel");
+
+    exportedToday = true;
+
+    createExcel();
+
+  }
+
+  if (now.getHours() === 0 && now.getMinutes() === 1) {
+
+    exportedToday = false;
+
+  }
+
 }
 
 // ==============================
@@ -128,5 +248,6 @@ async function checkSignal() {
 // ==============================
 
 setInterval(checkSignal, 60 * 1000);
+setInterval(checkExportTime, 60 * 1000);
 
-console.log("🤖 CICI BOT RUNNING (CHECK EVERY 1 MINUTE)");
+console.log("🤖 CICI BOT + REKAP EXCEL RUNNING");
