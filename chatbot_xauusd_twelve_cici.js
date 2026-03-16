@@ -1,6 +1,6 @@
 require("dotenv").config();
 const axios = require("axios");
-const { CCI } = require("technicalindicators");
+const { CCI, SMA } = require("technicalindicators");
 const ExcelJS = require("exceljs");
 const fs = require("fs");
 const FormData = require("form-data");
@@ -93,7 +93,7 @@ async function fetchData() {
   try {
 
     const url =
-      `https://api.twelvedata.com/time_series?symbol=XAU/USD&interval=1min&outputsize=200&apikey=${API_KEY}`;
+      `https://api.twelvedata.com/time_series?symbol=XAU/USD&interval=1min&outputsize=250&apikey=${API_KEY}`;
 
     const res = await axios.get(url);
 
@@ -133,6 +133,10 @@ async function checkSignal() {
 
   if (lastSignalTime === last.time) return;
 
+  // ==============================
+  // HITUNG CCI
+  // ==============================
+
   const cci = CCI.calculate({
     high,
     low,
@@ -144,24 +148,49 @@ async function checkSignal() {
 
   const CCI_VALUE = cci.at(-1);
 
-  if (CCI_VALUE < -100) {
+  // ==============================
+  // HITUNG MA200
+  // ==============================
+
+  const ma200 = SMA.calculate({
+    period: 200,
+    values: close
+  });
+
+  if (!ma200.length) return;
+
+  const MA200 = ma200.at(-1);
+
+  const price = last.close;
+
+  // ==============================
+  // SIGNAL LOGIC
+  // ==============================
+
+  if (CCI_VALUE < -100 && price > MA200) {
 
     lastSignalTime = last.time;
 
-    const price = last.close.toFixed(2);
-    const cciValue = CCI_VALUE.toFixed(2);
+    const priceFix = price.toFixed(2);
+    const cciFix = CCI_VALUE.toFixed(2);
+    const maFix = MA200.toFixed(2);
 
     signalLogs.push({
       time: last.time,
-      price: price,
-      cci: cciValue
+      price: priceFix,
+      cci: cciFix
     });
 
     sendTelegram(
-`🚨 <b>CICI MEMENUHI SYARAT GUYS</b> 🚨
+`🚨 <b>CICI MEMENUHI SYARAT</b> 🚨
+    Symbol : XAUUSD
+    Time   : ${last.time}
 
-Price : ${price}
-CCI   : ${cciValue}`
+    Price  : ${priceFix}
+    CCI    : ${cciFix}
+    MA200  : ${maFix}
+
+📈 Filter Trend : PRICE > MA200`
     );
 
   }
@@ -250,4 +279,4 @@ function checkExportTime() {
 setInterval(checkSignal, 60 * 1000);
 setInterval(checkExportTime, 60 * 1000);
 
-console.log("🤖 CICI BOT + REKAP EXCEL RUNNING");
+console.log("🤖 CICI BOT + MA200 + EXCEL RUNNING");
