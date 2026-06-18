@@ -98,15 +98,27 @@ async function checkSignal() {
 
   if (!ema50.length) return;
 
-  const emaValue = ema50[ema50.length - 1];
+    // ======================================
+    // GUNAKAN CANDLE YANG SUDAH CLOSE
+    // ======================================
 
-  // --------------------------------------
-  // Struktur candle
-  // --------------------------------------
+    // candle terakhir kemungkinan masih berjalan
+    const motherBar = candles[candles.length - 4];
+    const insideBar = candles[candles.length - 3];
+    const breakoutBar = candles[candles.length - 2];
 
-  const motherBar = candles[candles.length - 3];
-  const insideBar = candles[candles.length - 2];
-  const breakoutBar = candles[candles.length - 1];
+    const breakoutIndex = candles.length - 2;
+
+    const emaIndex = breakoutIndex - 49;
+
+    if (
+    emaIndex < 0 ||
+    ema50[emaIndex] === undefined
+    ) {
+    return;
+    }
+
+    const emaValue = ema50[emaIndex];
 
   // Anti duplicate
   if (
